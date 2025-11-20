@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RevDrive Simulation — Round-Specific Parameters</title>
+  <style>
+    body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f8fb;color:#0f172a}
+    .wrap{max-width:980px;margin:20px auto;padding:18px}
+    .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 6px rgba(2,6,23,0.06)}
+    label{display:block;margin-top:8px;font-size:14px}
+    input,select,button,textarea{font-size:14px;padding:8px;border:1px solid #e6ecf3;border-radius:6px;width:100%;box-sizing:border-box}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid #eef2f7}
+    th{background:#fbfdff;text-align:left}
+    .row{display:flex;gap:8px}
+    .btn{background:#0f62fe;color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+    .muted{color:#6b7280;font-size:13px}
+    .hidden{display:none}
+    .warn{color:#b91c1c;font-weight:700}
+    .tabs{display:flex;gap:8px;margin-bottom:12px}
+    .tab{padding:8px 12px;border-radius:8px;background:#eef2ff;cursor:pointer}
+    .tab.active{background:#0f62fe;color:#fff}
+    canvas{width:100%!important;height:220px!important}
+    .small{font-size:13px;color:#374151}
+    .social-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .mono{font-family:monospace;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="loginCard">
+      <h2>RevDrive Simulation — Login</h2>
+      <div class="muted">Select role to continue</div>
+      <label>Role</label>
+      <select id="roleSelect"><option value="student">Student</option><option value="instructor">Instructor</option></select>
+      <div id="passwordRow" class="hidden"><label>Instructor password</label><input id="passwordInput" type="password" placeholder="Enter password"></div>
+      <div style="margin-top:12px"><button id="enterBtn" class="btn">Enter</button></div>
+    </div>
+
+    <div id="app" class="hidden">
+
+      <!-- STUDENT VIEW -->
+      <div id="studentView" class="card hidden">
+        <h2>Student Dashboard</h2>
+        <div class="muted">Allocate budgets per round (cap ₹50,000). Team name is required.</div>
+
+        <label>Team name (required)</label>
+        <input id="teamName" placeholder="Team A" />
+
+        <label>Round</label>
+        <select id="roundSelect"></select>
+
+        <h3 style="margin-top:12px">Budget allocation</h3>
+        <table>
+          <thead><tr><th>Channel</th><th>Budget (₹)</th><th>% VoltX</th></tr></thead>
+          <tbody id="inputsTBody"></tbody>
+        </table>
+        <div id="budgetWarn" class="warn hidden">Total exceeds ₹50,000 — reduce to continue</div>
+
+        <!-- Social split nested UI: shown when Social budget > 0 -->
+        <div id="socialSplitCard" class="card hidden" style="margin-top:12px">
+          <h4>Social split (affects Social channel results)</h4>
+          <div class="muted small">Enter percentages 0–100 — these determine distribution across Instagram, Facebook, Twitter, LinkedIn.</div>
+          <div class="social-grid" style="margin-top:8px">
+            <input id="instaPct" placeholder="Instagram %" />
+            <input id="fbPct" placeholder="Facebook %" />
+            <input id="twPct" placeholder="Twitter %" />
+            <input id="liPct" placeholder="LinkedIn %" />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px">
+          <button id="saveDecision" class="btn">Save Decision</button>
+          <button id="runRound" class="btn">Run Round</button>
+        </div>
+
+        <div id="roundSummary" style="margin-top:12px"></div>
+        <div id="collated" style="margin-top:12px"></div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Performance Charts</h3>
+          <canvas id="chartConv"></canvas>
+          <canvas id="chartRev" style="margin-top:12px"></canvas>
+          <canvas id="chartRoas" style="margin-top:12px"></canvas>
+        </div>
+      </div>
+
+      <!-- INSTRUCTOR VIEW with TOP TABS -->
+      <div id="instructorViewWrap" class="card hidden">
+        <div class="tabs">
+          <div id="tabDashboard" class="tab active">Dashboard</div>
+          <div id="tabControls" class="tab">Controls</div>
+          <div id="tabTeams" class="tab">Teams</div>
+        </div>
+
+        <div id="tabContentDashboard">
+          <h3>Instructor Dashboard — summary</h3>
+          <div class="muted small">Current active round for students: <strong id="activeRoundDisplay">1</strong></div>
+          <div style="margin-top:12px"><button id="gotoControls" class="btn">Go to Controls</button></div>
+          <div style="margin-top:12px"><h4>Instructor quick actions</h4>
+            <div style="margin-top:8px"><button id="openNextRound" class="btn">Open Next Round</button></div>
+          </div>
+        </div>
+
+        <div id="tabContentControls" class="hidden">
+          <h3>Controls — Scenario multipliers & channel parameters</h3>
+          <div class="muted small">Edit multipliers and channel parameters for each round. Save parameters to make them active for that round.</div>
+          <h4 style="margin-top:12px">Scenario multipliers (per round)</h4>
+          <table id="multTable"><thead><tr><th>Round</th><th>Channel</th><th>CPC</th><th>CTR</th><th>CVR</th></tr></thead><tbody></tbody></table>
+
+          <h4 style="margin-top:12px">Channel parameters (round-specific)</h4>
+          <div class="muted small">Each row represents Round → Channel → Product. Edit values and click <strong>Save Params</strong>.</div>
+          <table id="paramsTable"><thead><tr><th>Round</th><th>Channel</th><th>Product</th><th>CPC</th><th>CTR</th><th>CVR</th><th>AOV</th></tr></thead><tbody></tbody></table>
+          <div style="margin-top:8px"><button id="saveParamsBtn" class="btn">Save Params</button></div>
+
+          <div style="margin-top:12px">
+            <label>Set active round (students can only run rounds ≤ active round)</label>
+            <select id="setActiveRound"></select>
+            <div style="margin-top:8px"><button id="applyActiveRound" class="btn">Apply Active Round</button></div>
+          </div>
+        </div>
+
+        <div id="tabContentTeams" class="hidden">
+          <h3>Teams — All submissions</h3>
+          <div style="max-height:360px;overflow:auto;margin-top:8px"><table id="teamsTable"><thead><tr><th>Team</th><th>Round</th><th>Budget</th><th>Conv</th><th>Revenue</th><th>ROAS</th></tr></thead><tbody></tbody></table></div>
+          <div style="margin-top:12px"><button id="exportBtn" class="btn">Export CSV</button></div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+  // helpers
+  const $ = id => document.getElementById(id);
+  const show = el => el && el.classList.remove('hidden');
+  const hide = el => el && el.classList.add('hidden');
+
+  // config/state
+  const instructorPass = 'revdrive123';
+  const channels = ['Search','Display','Social','Email','TV','Influencer'];
+  const rounds = [1,2,3,4,5,6];
+  const products = ['VoltX','EonX'];
+  const budgetCap = 50000;
+
+  // persistence: teams, multipliers, round-specific params, activeRound
+  let teams = JSON.parse(localStorage.getItem('revdrive_teams')||'{}');
+  let scenarioMultipliers = JSON.parse(localStorage.getItem('revdrive_multipliers')||'{}');
+  let channelParamsPerRound = JSON.parse(localStorage.getItem('revdrive_params_round')||'{}');
+  let channelParamsDefault = JSON.parse(localStorage.getItem('revdrive_params')||'{}');
+  let activeRound = Number(localStorage.getItem('revdrive_activeRound')||1);
+
+  // initialize defaults if empty
+  if(Object.keys(scenarioMultipliers).length===0){ rounds.forEach(r=>{ scenarioMultipliers[r]={}; channels.forEach(ch=> scenarioMultipliers[r][ch]={cpc:1,ctr:1,cvr:1}); }); localStorage.setItem('revdrive_multipliers', JSON.stringify(scenarioMultipliers)); }
+  if(Object.keys(channelParamsDefault).length===0){ channelParamsDefault = {
+    Search:{VoltX:{cpc:10,ctr:0.03,cvr:0.03,aov:90000},EonX:{cpc:20,ctr:0.02,cvr:0.02,aov:1500000}},
+    Display:{VoltX:{cpc:5,ctr:0.01,cvr:0.01,aov:90000},EonX:{cpc:10,ctr:0.008,cvr:0.008,aov:1500000}},
+    Social:{VoltX:{cpc:8,ctr:0.02,cvr:0.02,aov:90000},EonX:{cpc:15,ctr:0.015,cvr:0.015,aov:1500000}},
+    Email:{VoltX:{cpc:1,ctr:0.1,cvr:0.05,aov:90000},EonX:{cpc:2,ctr:0.08,cvr:0.04,aov:1500000}},
+    TV:{VoltX:{cpc:0,ctr:0,cvr:0,aov:90000},EonX:{cpc:0,ctr:0,cvr:0,aov:1500000}},
+    Influencer:{VoltX:{cpc:0,ctr:0.03,cvr:0.025,aov:90000},EonX:{cpc:0,ctr:0.02,cvr:0.02,aov:1500000}}
+  }; localStorage.setItem('revdrive_params', JSON.stringify(channelParamsDefault)); }
+  if(Object.keys(channelParamsPerRound).length===0){ /* create empty per-round structure */ rounds.forEach(r=>{ channelParamsPerRound[r] = {}; channels.forEach(ch=>{ channelParamsPerRound[r][ch] = {}; products.forEach(p=>{ channelParamsPerRound[r][ch][p] = Object.assign({}, channelParamsDefault[ch][p]); }); }); }); localStorage.setItem('revdrive_params_round', JSON.stringify(channelParamsPerRound)); }
+
+  // UI wiring: login
+  const roleSelect = $('roleSelect'), passwordRow = $('passwordRow'), passwordInput = $('passwordInput'), enterBtn = $('enterBtn');
+  roleSelect && roleSelect.addEventListener('change', ()=>{ if(roleSelect.value==='instructor') show(passwordRow); else hide(passwordRow); });
+  enterBtn && enterBtn.addEventListener('click', ()=>{
+    const role = roleSelect.value;
+    if(role==='instructor'){
+      if(passwordInput.value !== instructorPass){ alert('Incorrect password'); return; }
+      hide($('loginCard')); show($('app')); show($('instructorViewWrap')); showInstructorActiveRound(); initInstructor();
+    } else {
+      hide($('loginCard')); show($('app')); show($('studentView')); initStudent();
+    }
+  });
+
+  // STUDENT INIT
+  function initStudent(){
+    const roundSel = $('roundSelect'); if(!roundSel) return; roundSel.innerHTML='';
+    rounds.forEach(r=>{ const opt = document.createElement('option'); opt.value = r; opt.textContent = 'Round '+r; if(r>activeRound) opt.disabled = true; roundSel.appendChild(opt); });
+    // default to activeRound
+    roundSel.value = activeRound;
+    renderBudgetTable(Number(roundSel.value));
+    roundSel.addEventListener('change', ()=>{ renderBudgetTable(+roundSel.value); });
+    $('saveDecision').addEventListener('click', saveDecision);
+    $('runRound').addEventListener('click', runRound);
+    updateSocialVisibility(); renderCollatedFromLocal();
+  }
+
+  function renderBudgetTable(round){
+    const tbody = $('inputsTBody'); if(!tbody) return; tbody.innerHTML='';
+    const sampleBud = {Search:8000,Display:8000,Social:8000,Email:8000,TV:8000,Influencer:8000};
+    const teamVal = ($('teamName').value || '').trim();
+    channels.forEach(ch=>{
+      const tr = document.createElement('tr');
+      const saved = (teams[teamVal] && teams[teamVal].decisions && teams[teamVal].decisions[round]) || null;
+      const val = saved? saved.budgets[ch] : sampleBud[ch];
+      const prod = saved? saved.prodSplit[ch] : 0.6;
+      tr.innerHTML = `<td>${ch}</td><td><input class='bIn' data-ch='${ch}' value='${val}'/></td><td><input class='pIn' data-ch='${ch}' value='${prod}'/></td>`;
+      tbody.appendChild(tr);
+    });
+    const savedSocial = (teams[teamVal] && teams[teamVal].decisions && teams[teamVal].decisions[round])? teams[teamVal].decisions[round].social : {insta:25,fb:25,tw:25,li:25};
+    $('instaPct') && ($('instaPct').value = savedSocial.insta);
+    $('fbPct') && ($('fbPct').value = savedSocial.fb);
+    $('twPct') && ($('twPct').value = savedSocial.tw);
+    $('liPct') && ($('liPct').value = savedSocial.li);
+    document.querySelectorAll('.bIn').forEach(i=> i.addEventListener('input', ()=>{ validateBudget(); updateSocialVisibility(); }));
+  }
+
+  function updateSocialVisibility(){ let socialBudget=0; document.querySelectorAll('.bIn').forEach(i=>{ if(i.dataset.ch==='Social') socialBudget = Number(i.value)||0; }); if(socialBudget>0) show($('socialSplitCard')); else hide($('socialSplitCard')); }
+  function validateBudget(){ let sum=0; document.querySelectorAll('.bIn').forEach(i=> sum+= Number(i.value)||0); if(sum>budgetCap){ show($('budgetWarn')); return false; } hide($('budgetWarn')); return true; }
+
+  function saveDecision(){ const team = ($('teamName').value || '').trim(); if(!team){ alert('Please enter Team name before saving.'); return; } const round = +$('roundSelect').value; if(!validateBudget()){ alert('Please reduce total budget'); return; } if(!teams[team]) teams[team]={decisions:{},results:{}}; const buds={}; document.querySelectorAll('.bIn').forEach(i=> buds[i.dataset.ch] = Number(i.value)||0); const prodSplit={}; document.querySelectorAll('.pIn').forEach(i=> prodSplit[i.dataset.ch] = Number(i.value)||0); const social = { insta: Number($('instaPct').value)||0, fb: Number($('fbPct').value)||0, tw: Number($('twPct').value)||0, li: Number($('liPct').value)||0 }; teams[team].decisions[round] = {budgets:buds, prodSplit:prodSplit, social:social}; localStorage.setItem('revdrive_teams', JSON.stringify(teams)); alert('Decision saved for '+team+' (Round '+round+')'); refreshInstructorTeams(); }
+
+  function runRound(){ const team = ($('teamName').value || '').trim(); if(!team){ alert('Please enter Team name before running.'); return; } const round = +$('roundSelect').value; if(round > activeRound){ alert('This round has not been opened by the instructor yet.'); return; } if(!teams[team] || !teams[team].decisions[round]){ alert('Please save decision for this round before running.'); return; } const dec = teams[team].decisions[round]; const res = {round:round,totalBudget:0,totalConv:0,totalRevenue:0,byChannel:{}}; channels.forEach(ch=>{ const bud = dec.budgets[ch] || 0; res.totalBudget += bud; const pct = dec.prodSplit[ch] || 0.6; const voltBud = bud * pct; const eonBud = bud - voltBud; res.byChannel[ch] = {VoltX:{budget:voltBud,conv:0,revenue:0},EonX:{budget:eonBud,conv:0,revenue:0}}; // select params: prefer round-specific, else default
+      const paramsForRound = channelParamsPerRound[round] || {};
+      if(ch !== 'Social'){
+        [['VoltX',voltBud],['EonX',eonBud]].forEach(pair=>{ const prod = pair[0], b = pair[1]; const base = (paramsForRound[ch] && paramsForRound[ch][prod])? paramsForRound[ch][prod] : channelParamsDefault[ch][prod]; const eff = b * (1 - Math.exp(-b/1500)); let estClicks = base.cpc>0 ? eff / base.cpc : eff * 5; const conv = estClicks * base.ctr * base.cvr; const revenue = conv * base.aov; res.byChannel[ch][prod].conv = conv; res.byChannel[ch][prod].revenue = revenue; res.totalConv += conv; res.totalRevenue += revenue; });
+      } else {
+        const split = dec.social || {insta:25,fb:25,tw:25,li:25}; const platformMult = {insta:1.05, fb:1.0, tw:0.9, li:0.95}; const platforms=['insta','fb','tw','li']; platforms.forEach(key=>{ const share = (split[key]||0)/100; const budShare = bud * share; const voltShare = pct; const voltB = budShare * voltShare; const eonB = budShare - voltB; [['VoltX',voltB],['EonX',eonB]].forEach(pair=>{ const prod = pair[0], b = pair[1]; const base = (paramsForRound['Social'] && paramsForRound['Social'][prod])? paramsForRound['Social'][prod] : channelParamsDefault['Social'][prod]; const eff = b * (1 - Math.exp(-b/1500)); let estClicks = base.cpc>0 ? eff / base.cpc : eff * 5; const ctr = Math.max(0, base.ctr * (scenarioMultipliers[round] && scenarioMultipliers[round]['Social'] ? scenarioMultipliers[round]['Social'].ctr : 1) * platformMult[key]); const cvr = Math.max(0, base.cvr * (scenarioMultipliers[round] && scenarioMultipliers[round]['Social'] ? scenarioMultipliers[round]['Social'].cvr : 1) * platformMult[key]); const conv = estClicks * ctr * cvr; const revenue = conv * base.aov; res.byChannel['Social'][prod].conv += conv; res.byChannel['Social'][prod].revenue += revenue; res.totalConv += conv; res.totalRevenue += revenue; }); }); }
+    }); teams[team].results[round] = res; localStorage.setItem('revdrive_teams', JSON.stringify(teams)); renderRoundResult(team, round); refreshInstructorTeams(); }
+
+  function renderRoundResult(team, round){ const out = $('roundSummary'); if(!out) return; const res = teams[team].results[round]; if(!res){ out.innerHTML = '<div>No result</div>'; return; } let html = `<h3>${team} — Round ${round}</h3><div class='muted small'>Budget: ₹${Math.round(res.totalBudget)} • Conversions: ${Math.round(res.totalConv)} • Revenue: ₹${Math.round(res.totalRevenue)}</div>`; html += '<table><thead><tr><th>Channel</th><th>VoltX conv</th><th>EonX conv</th><th>Revenue</th></tr></thead><tbody>'; channels.forEach(ch=>{ if(ch!=='Social'){ const v = res.byChannel[ch].VoltX, e = res.byChannel[ch].EonX; html += `<tr><td>${ch}</td><td>${Math.round(v.conv)}</td><td>${Math.round(e.conv)}</td><td>₹${Math.round(v.revenue + e.revenue)}</td></tr>`; } else { const v = res.byChannel['Social'].VoltX, e = res.byChannel['Social'].EonX; html += `<tr><td>Social (total)</td><td>${Math.round(v.conv)}</td><td>${Math.round(e.conv)}</td><td>₹${Math.round(v.revenue+e.revenue)}</td></tr>`; const dec = teams[team].decisions[round]; const split = (dec && dec.social) ? dec.social : {insta:25,fb:25,tw:25,li:25}; html += `<tr><td colspan='4'><strong>Social platform breakdown:</strong><div class='small'>`; ['insta','fb','tw','li'].forEach(k=>{ html += `${k.toUpperCase()}: ${split[k]}% &nbsp; `; }); html += `</div></td></tr>`; } }); html += '</tbody></table>'; out.innerHTML = html; renderCollated(team); }
+
+  function renderCollated(team){ const c = $('collated'); if(!c) return; if(!teams[team] || !teams[team].results){ c.innerHTML = '<div>No results yet</div>'; return; } let rows=''; let tb=0, tc=0, trv=0; rounds.forEach(r=>{ const res = teams[team].results[r]; if(!res) return; tb+=res.totalBudget; tc+=res.totalConv; trv+=res.totalRevenue; rows += `<tr><td>${r}</td><td>₹${Math.round(res.totalBudget)}</td><td>${Math.round(res.totalConv)}</td><td>₹${Math.round(res.totalRevenue)}</td></tr>`; }); c.innerHTML = `<table><thead><tr><th>Round</th><th>Budget</th><th>Conversions</th><th>Revenue</th></tr></thead><tbody>${rows}</tbody></table>`; renderCharts(team); }
+
+  // INSTRUCTOR: tabs
+  const tabDashboard = $('tabDashboard'), tabControls=$('tabControls'), tabTeams=$('tabTeams');
+  const contentDashboard=$('tabContentDashboard'), contentControls=$('tabContentControls'), contentTeams=$('tabContentTeams');
+  tabDashboard && tabDashboard.addEventListener('click', ()=>{ setActiveTab('dashboard'); });
+  tabControls && tabControls.addEventListener('click', ()=>{ setActiveTab('controls'); });
+  tabTeams && tabTeams.addEventListener('click', ()=>{ setActiveTab('teams'); });
+  $('gotoControls') && $('gotoControls').addEventListener('click', ()=> setActiveTab('controls'));
+
+  function setActiveTab(name){ tabDashboard.classList.remove('active'); tabControls.classList.remove('active'); tabTeams.classList.remove('active'); hide(contentDashboard); hide(contentControls); hide(contentTeams); if(name==='dashboard'){ tabDashboard.classList.add('active'); show(contentDashboard); } if(name==='controls'){ tabControls.classList.add('active'); show(contentControls); } if(name==='teams'){ tabTeams.classList.add('active'); show(contentTeams); } }
+
+  function initInstructor(){
+    // multipliers
+    const mt = $('multTable').querySelector('tbody'); mt.innerHTML=''; rounds.forEach(r=>{ channels.forEach(ch=>{ const row=document.createElement('tr'); row.innerHTML = `<td>${r}</td><td>${ch}</td><td><input class='m_cpc' data-r='${r}' data-ch='${ch}' value='${(scenarioMultipliers[r] && scenarioMultipliers[r][ch])? scenarioMultipliers[r][ch].cpc : 1}' /></td><td><input class='m_ctr' data-r='${r}' data-ch='${ch}' value='${(scenarioMultipliers[r] && scenarioMultipliers[r][ch])? scenarioMultipliers[r][ch].ctr : 1}' /></td><td><input class='m_cvr' data-r='${r}' data-ch='${ch}' value='${(scenarioMultipliers[r] && scenarioMultipliers[r][ch])? scenarioMultipliers[r][ch].cvr : 1}' /></td>`; mt.appendChild(row); }); });
+    // params per round
+    const pt = $('paramsTable').querySelector('tbody'); pt.innerHTML=''; rounds.forEach(r=>{ channels.forEach(ch=>{ products.forEach(p=>{ const prm = (channelParamsPerRound[r] && channelParamsPerRound[r][ch] && channelParamsPerRound[r][ch][p])? channelParamsPerRound[r][ch][p] : channelParamsDefault[ch][p]; const tr = document.createElement('tr'); tr.innerHTML = `<td class='mono'>${r}</td><td>${ch}</td><td>${p}</td><td><input class='p_cpc' data-r='${r}' data-ch='${ch}' data-p='${p}' value='${prm.cpc}' /></td><td><input class='p_ctr' data-r='${r}' data-ch='${ch}' data-p='${p}' value='${prm.ctr}' /></td><td><input class='p_cvr' data-r='${r}' data-ch='${ch}' data-p='${p}' value='${prm.cvr}' /></td><td><input class='p_aov' data-r='${r}' data-ch='${ch}' data-p='${p}' value='${prm.aov}' /></td>`; pt.appendChild(tr); }); }); });
+    // set active round selector
+    const setSel = $('setActiveRound'); setSel.innerHTML=''; rounds.forEach(r=>{ const o=document.createElement('option'); o.value = r; o.textContent = 'Round '+r; setSel.appendChild(o); }); setSel.value = activeRound;
+
+    // wire save params
+    $('saveParamsBtn').addEventListener('click', ()=>{
+      // write all params into channelParamsPerRound
+      rounds.forEach(r=>{ channelParamsPerRound[r] = channelParamsPerRound[r]||{}; channels.forEach(ch=>{ channelParamsPerRound[r][ch] = channelParamsPerRound[r][ch]||{}; products.forEach(p=>{ const sel = document.querySelector(`.p_cpc[data-r='${r}'][data-ch='${ch}'][data-p='${p}']`); const cpc = Number(sel.value)||0; const ctr = Number(document.querySelector(`.p_ctr[data-r='${r}'][data-ch='${ch}'][data-p='${p}']`).value)||0; const cvr = Number(document.querySelector(`.p_cvr[data-r='${r}'][data-ch='${ch}'][data-p='${p}']`).value)||0; const aov = Number(document.querySelector(`.p_aov[data-r='${r}'][data-ch='${ch}'][data-p='${p}']`).value)||0; channelParamsPerRound[r][ch][p] = {cpc:cpc,ctr:ctr,cvr:cvr,aov:aov}; }); }); }); localStorage.setItem('revdrive_params_round', JSON.stringify(channelParamsPerRound)); alert('Parameters saved for all rounds'); });
+
+    // apply active round button saves multipliers & params and unlocks rounds
+    $('applyActiveRound').addEventListener('click', ()=>{
+      const v = +$('setActiveRound').value; activeRound = v; localStorage.setItem('revdrive_activeRound', String(activeRound)); // save multipliers
+      document.querySelectorAll('.m_cpc').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; scenarioMultipliers[r] = scenarioMultipliers[r]||{}; scenarioMultipliers[r][ch] = scenarioMultipliers[r][ch]||{}; scenarioMultipliers[r][ch].cpc = Number(i.value)||1; });
+      document.querySelectorAll('.m_ctr').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; scenarioMultipliers[r][ch].ctr = Number(i.value)||1; });
+      document.querySelectorAll('.m_cvr').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; scenarioMultipliers[r][ch].cvr = Number(i.value)||1; });
+      localStorage.setItem('revdrive_multipliers', JSON.stringify(scenarioMultipliers));
+      // save params too
+      document.querySelectorAll('.p_cpc').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; const p=i.dataset.p; channelParamsPerRound[r] = channelParamsPerRound[r]||{}; channelParamsPerRound[r][ch] = channelParamsPerRound[r][ch]||{}; channelParamsPerRound[r][ch][p] = channelParamsPerRound[r][ch][p] || {}; channelParamsPerRound[r][ch][p].cpc = Number(i.value)||0; });
+      document.querySelectorAll('.p_ctr').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; const p=i.dataset.p; channelParamsPerRound[r][ch][p].ctr = Number(i.value)||0; });
+      document.querySelectorAll('.p_cvr').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; const p=i.dataset.p; channelParamsPerRound[r][ch][p].cvr = Number(i.value)||0; });
+      document.querySelectorAll('.p_aov').forEach(i=>{ const r=+i.dataset.r; const ch=i.dataset.ch; const p=i.dataset.p; channelParamsPerRound[r][ch][p].aov = Number(i.value)||0; });
+      localStorage.setItem('revdrive_params_round', JSON.stringify(channelParamsPerRound));
+      refreshInstructorTeams(); showInstructorActiveRound(); updateStudentRoundOptions(); alert('Active round and parameters applied');
+    });
+
+    // open next round
+    $('openNextRound') && $('openNextRound').addEventListener('click', ()=>{ const next = Math.min(6, activeRound+1); activeRound = next; localStorage.setItem('revdrive_activeRound', String(activeRound)); showInstructorActiveRound(); updateStudentRoundOptions(); alert('Opened Round '+activeRound); });
+
+    $('exportBtn') && $('exportBtn').addEventListener('click', exportCsv);
+    setActiveTab('dashboard'); refreshInstructorTeams();
+  }
+
+  function showInstructorActiveRound(){ const el = $('activeRoundDisplay'); if(el) el.innerText = activeRound; }
+
+  function refreshInstructorTeams(){ const tb = $('teamsTable').querySelector('tbody'); tb.innerHTML=''; Object.keys(teams).forEach(team=>{ const t = teams[team]; Object.keys(t.results||{}).forEach(r=>{ const res = t.results[r]; const tr = document.createElement('tr'); tr.innerHTML = `<td>${team}</td><td>${r}</td><td>₹${Math.round(res.totalBudget)}</td><td>${Math.round(res.totalConv)}</td><td>₹${Math.round(res.totalRevenue)}</td><td>${res.totalBudget>0? (res.totalRevenue/res.totalBudget).toFixed(2):'—'}</td>`; tb.appendChild(tr); }); }); }
+
+  function exportCsv(){ let csv='Team,Round,Budget,Conversions,Revenue,ROAS\n'; Object.keys(teams).forEach(team=>{ Object.keys(teams[team].results||{}).forEach(r=>{ const res = teams[team].results[r]; csv += `${team},${r},${Math.round(res.totalBudget)},${Math.round(res.totalConv)},${Math.round(res.totalRevenue)},${res.totalBudget>0? (res.totalRevenue/res.totalBudget).toFixed(2):''}\n`; }); }); const blob = new Blob([csv],{type:'text/csv'}); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='revdrive_teams.csv'; a.click(); }
+
+  function renderCollatedFromLocal(){ /* no-op */ }
+
+  // Charts
+  let chartConv, chartRev, chartRoas;
+  function renderCharts(team){ if(!teams[team]||!teams[team].results) return; const labels=[], conv=[], rev=[], roas=[]; rounds.forEach(r=>{ const res = teams[team].results[r]; if(!res) return; labels.push('R'+r); conv.push(Math.round(res.totalConv)); rev.push(Math.round(res.totalRevenue)); roas.push(res.totalBudget>0? +(res.totalRevenue/res.totalBudget).toFixed(2):0); }); const c1=$('chartConv'), c2=$('chartRev'), c3=$('chartRoas'); if(!c1||!c2||!c3) return; const ctx1=c1.getContext('2d'), ctx2=c2.getContext('2d'), ctx3=c3.getContext('2d'); if(chartConv) chartConv.destroy(); if(chartRev) chartRev.destroy(); if(chartRoas) chartRoas.destroy(); chartConv=new Chart(ctx1,{type:'line',data:{labels:labels,datasets:[{label:'Conversions',data:conv,borderColor:'#0f62fe',fill:false}]},options:{responsive:true}}); chartRev=new Chart(ctx2,{type:'line',data:{labels:labels,datasets:[{label:'Revenue',data:rev,borderColor:'#16a34a',fill:false}]},options:{responsive:true}}); chartRoas=new Chart(ctx3,{type:'line',data:{labels:labels,datasets:[{label:'ROAS',data:roas,borderColor:'#b91c1c',fill:false}]},options:{responsive:true}}); }
+
+  // update student selects when instructor opens rounds
+  function updateStudentRoundOptions(){ const sel = $('roundSelect'); if(!sel) return; for(let i=0;i<sel.options.length;i++){ const opt=sel.options[i]; opt.disabled = Number(opt.value) > activeRound; } if(Number(sel.value) > activeRound) sel.value = activeRound; }
+
+  // initial UI state
+  showInstructorActiveRound();
+
+  </script>
+</body>
+</html>
